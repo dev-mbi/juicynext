@@ -47,7 +47,7 @@ export default function Hero() {
           }`}
         >
           <span className="bg-gradient-to-r from-juicy-gold via-yellow-300 to-juicy-orange bg-clip-text text-transparent">
-            Mango Rush
+            {product.name}
           </span>
         </h1>
 

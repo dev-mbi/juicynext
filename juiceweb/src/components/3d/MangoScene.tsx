@@ -2,7 +2,7 @@
 
 import { useRef, useMemo } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { Float, Stars, MeshTransmissionMaterial, Text, OrbitControls } from "@react-three/drei"
+import { Float, Stars, MeshTransmissionMaterial, OrbitControls } from "@react-three/drei"
 import * as THREE from "three"
 
 function Bottle({ color = "#FFD700", liquidColor = "#FF6B00" }) {
@@ -128,23 +128,102 @@ function OrbitingParticle({ index, color }: { index: number; color: string }) {
   )
 }
 
-function FloatingMango() {
+function RealisticMango() {
+  const meshRef = useRef<THREE.Mesh>(null!)
+
+  const mangoGeo = useMemo(() => {
+    const geo = new THREE.SphereGeometry(0.4, 48, 36)
+    const pos = geo.attributes.position as THREE.BufferAttribute
+    const colors = new Float32Array(pos.count * 3)
+
+    for (let i = 0; i < pos.count; i++) {
+      let x = pos.getX(i)
+      let y = pos.getY(i)
+      let z = pos.getZ(i)
+
+      const len = Math.sqrt(x * x + y * y + z * z)
+      const nx = x / len, ny = y / len, nz = z / len
+
+      // Stretch to ellipsoid (mango is oval)
+      x *= 0.85
+      y *= 1.25
+      z *= 0.75
+
+      // Kidney shape: bulge one side, flatten the other
+      const side = Math.sign(x)
+      const bulge = 1 + side * 0.08 * (1 - Math.abs(y)) * (1 - Math.abs(z) * 0.5)
+      x *= bulge
+
+      // Slight hook/beak at top
+      const beak = 1 + 0.12 * Math.max(0, -y) * Math.max(0, -x) * 2
+      x *= beak
+      z *= 1 + 0.06 * Math.max(0, -y)
+
+      // Crease along one side (mango characteristic)
+      const crease = 1 - 0.08 * Math.max(0, -x) * (1 - Math.abs(y)) * Math.exp(-z * z * 4)
+      x *= crease
+
+      pos.setXYZ(i, x, y, z)
+
+      // Color: gradient from green (top) → yellow → orange → red (bottom/blush)
+      const greenT = Math.max(0, Math.min(1, (y + 1) * 0.6))
+      const blushT = Math.max(0, Math.min(1, (-y + 0.3))) * Math.max(0, Math.min(1, x + 0.3))
+
+      let r = 0.95 - blushT * 0.3
+      let g = 0.7 * greenT + 0.3 * (1 - blushT)
+      let b = 0.1 * greenT + 0.05 * (1 - blushT)
+
+      // Add slight natural variation
+      const noise = 1 + (Math.sin(x * 12 + y * 8 + z * 10) * 0.03)
+      r *= noise; g *= noise; b *= noise
+
+      colors[i * 3] = r
+      colors[i * 3 + 1] = g
+      colors[i * 3 + 2] = b
+    }
+
+    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3))
+    geo.computeVertexNormals()
+    return geo
+  }, [])
+
+  useFrame((state) => {
+    if (meshRef.current) {
+      meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() * 0.3) * 0.1
+      meshRef.current.rotation.z = Math.cos(state.clock.getElapsedTime() * 0.2) * 0.05
+    }
+  })
+
   return (
-    <Float speed={2} rotationIntensity={0.5} floatIntensity={1.5}>
-      <mesh>
-        <sphereGeometry args={[0.4, 16, 16]} />
+    <Float speed={1.5} rotationIntensity={0.3} floatIntensity={1.2}>
+      {/* Mango body */}
+      <mesh ref={meshRef} geometry={mangoGeo} castShadow>
         <meshPhysicalMaterial
-          color="#FFA500"
-          emissive="#FF6B00"
-          emissiveIntensity={0.2}
-          roughness={0.3}
-          metalness={0.1}
+          vertexColors
+          roughness={0.35}
+          metalness={0.0}
+          clearcoat={0.15}
+          clearcoatRoughness={0.3}
+          envMapIntensity={0.6}
+          ior={1.4}
         />
       </mesh>
+
+      {/* Stem */}
+      <mesh position={[0.02, 0.52, 0]} rotation={[0.3, 0, 0.2]}>
+        <cylinderGeometry args={[0.015, 0.025, 0.08, 6]} />
+        <meshPhysicalMaterial color="#5C3A1E" roughness={0.9} />
+      </mesh>
+
       {/* Leaf */}
-      <mesh position={[0, 0.45, 0]} rotation={[0.3, 0, 0.5]}>
-        <planeGeometry args={[0.15, 0.3]} />
-        <meshBasicMaterial color="#22c55e" side={THREE.DoubleSide} />
+      <mesh position={[0.04, 0.58, 0]} rotation={[0.8, 0.3, 0.6]}>
+        <planeGeometry args={[0.08, 0.18]} />
+        <meshPhysicalMaterial
+          color="#22c55e"
+          side={THREE.DoubleSide}
+          roughness={0.7}
+          metalness={0.0}
+        />
       </mesh>
     </Float>
   )
@@ -188,17 +267,18 @@ function Scene({ bottleColor, liquidColor }: { bottleColor: string; liquidColor:
 
   return (
     <>
-      <ambientLight intensity={0.3} />
-      <directionalLight position={[5, 5, 5]} intensity={0.8} />
-      <directionalLight position={[-5, -5, -5]} intensity={0.3} />
-      <pointLight position={[0, 3, 2]} intensity={1} color={liquidColor} />
+      <ambientLight intensity={0.2} />
+      <hemisphereLight args={["#ffe6c7", "#1a2a3a", 0.6]} />
+      <directionalLight position={[8, 8, 4]} intensity={1.0} />
+      <directionalLight position={[-4, -2, -6]} intensity={0.2} color="#FFD700" />
+      <pointLight position={[0, 3, 2]} intensity={0.8} color={liquidColor} />
 
       <Stars radius={30} depth={50} count={500} factor={4} saturation={0} fade speed={1} />
 
       <group position={[0, 0, 0]}>
         <Bottle color={bottleColor} liquidColor={liquidColor} />
         <group position={[1.2, -0.5, 0]}>
-          <FloatingMango />
+          <RealisticMango />
         </group>
       </group>
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { products } from "@/data/products"
+import BottleIcon from "@/components/BottleIcon"
 
 const mangoSeries = products.filter((p) => p.series === "Mango Series")
 
@@ -23,7 +24,7 @@ export default function MangoCollection() {
         </div>
 
         {/* Product cards */}
-        <div className="grid gap-6 md:grid-cols-5">
+        <div className="grid gap-6 md:grid-cols-2">
           {mangoSeries.map((product, index) => (
             <button
               key={product.id}
@@ -45,10 +46,10 @@ export default function MangoCollection() {
               <div className="relative z-10">
                 {/* Bottle emoji placeholder */}
                 <div
-                  className="mx-auto mb-4 text-5xl transition-transform duration-500 group-hover:scale-110"
+                  className="mx-auto mb-4 transition-transform duration-500 group-hover:scale-110"
                   style={{ filter: `drop-shadow(0 0 12px ${product.glowColor}60)` }}
                 >
-                  🥤
+                  <BottleIcon color1={product.themeColor} color2={product.glowColor} />
                 </div>
 
                 <h3 className="font-heading text-sm font-bold tracking-wide text-white">
@@ -77,13 +78,13 @@ export default function MangoCollection() {
           <div className="flex flex-col items-center gap-8 md:flex-row">
             {/* Visual */}
             <div
-              className="flex h-48 w-48 shrink-0 items-center justify-center rounded-2xl text-7xl animate-float"
+              className="flex h-48 w-48 shrink-0 items-center justify-center rounded-2xl animate-float"
               style={{
                 background: `radial-gradient(circle, ${active.glowColor}20 0%, transparent 70%)`,
                 boxShadow: `0 0 60px ${active.glowColor}20`,
               }}
             >
-              🥤
+              <BottleIcon className="text-7xl" color1={active.themeColor} color2={active.glowColor} />
             </div>
 
             {/* Info */}
@@ -104,12 +105,19 @@ export default function MangoCollection() {
                 <span className="font-heading text-2xl font-bold text-juicy-gold">
                   Rs. {active.price}
                 </span>
-                <a
-                  href="#buy"
-                  className="rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-6 py-2 text-sm font-semibold text-black transition-all hover:scale-105"
-                >
-                  Add to Cart
-                </a>
+                {active.status === "active" ? (
+                  <a
+                    href="#buy"
+                    className="rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-6 py-2 text-sm font-semibold text-black transition-all hover:scale-105"
+                  >
+                    Add to Cart
+                  </a>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-juicy-purple/30 bg-juicy-purple/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-juicy-purple">
+                    <span className="h-1.5 w-1.5 rounded-full bg-juicy-purple" />
+                    Coming Soon
+                  </span>
+                )}
               </div>
             </div>
           </div>
