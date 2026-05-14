@@ -1,9 +1,78 @@
 "use client"
 
-import { useRef, useMemo } from "react"
+import { useRef, useMemo, Suspense } from "react"
 import { Canvas, useFrame } from "@react-three/fiber"
-import { Float, Stars, MeshTransmissionMaterial, OrbitControls } from "@react-three/drei"
+import { Float, Stars, OrbitControls, useGLTF } from "@react-three/drei"
 import * as THREE from "three"
+import { createMangoGeometryLite } from "@/lib/geometries"
+
+function GlowRing({ color = "#FF6B00", radius = 1.2, speed = 0.5 }) {
+  const ref = useRef<THREE.Mesh>(null!)
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime()
+    ref.current.rotation.x = Math.sin(t * speed * 0.3) * 0.1
+    ref.current.rotation.z = Math.cos(t * speed * 0.2) * 0.1
+  })
+
+  return (
+    <mesh ref={ref} rotation={[Math.PI / 2.2, 0, 0]}>
+      <ringGeometry args={[radius - 0.05, radius, 48]} />
+      <meshBasicMaterial color={color} transparent opacity={0.15} side={THREE.DoubleSide} />
+    </mesh>
+  )
+}
+
+function PulsingGlow({ color = "#FFD700" }) {
+  const ref = useRef<THREE.Mesh>(null!)
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime()
+    const pulse = 0.08 + Math.sin(t * 1.5) * 0.04
+    ref.current.scale.setScalar(1 + Math.sin(t * 1.2) * 0.15)
+    if (ref.current.material) {
+      (ref.current.material as THREE.MeshBasicMaterial).opacity = pulse
+    }
+  })
+
+  return (
+    <mesh ref={ref} position={[0, 0.3, 0]}>
+      <sphereGeometry args={[1.4, 24, 24]} />
+      <meshBasicMaterial color={color} transparent opacity={0.08} />
+    </mesh>
+  )
+}
+
+function OrbitingParticles({ count = 30, color = "#FFD700" }) {
+  const ref = useRef<THREE.Points>(null!)
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(2 * Math.random() - 1)
+      const r = 1.6 + Math.random() * 0.8
+      pos[i * 3] = Math.sin(phi) * Math.cos(theta) * r
+      pos[i * 3 + 1] = Math.sin(phi) * Math.sin(theta) * r * 0.5
+      pos[i * 3 + 2] = Math.cos(phi) * r
+    }
+    return pos
+  }, [count])
+
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime()
+    ref.current.rotation.y = t * 0.2
+    ref.current.rotation.x = Math.sin(t * 0.1) * 0.05
+  })
+
+  return (
+    <points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
+      </bufferGeometry>
+      <pointsMaterial size={0.04} color={color} transparent opacity={0.6} sizeAttenuation />
+    </points>
+  )
+}
 
 function Bottle({ color = "#FFD700", liquidColor = "#FF6B00" }) {
   const meshRef = useRef<THREE.Mesh>(null!)
@@ -27,237 +96,99 @@ function Bottle({ color = "#FFD700", liquidColor = "#FF6B00" }) {
     shape.quadraticCurveTo(-0.35, -1, -0.25, -1.4)
     shape.quadraticCurveTo(-0.3, -1.6, -0.3, -2)
     shape.closePath()
-
-    const settings: THREE.ExtrudeGeometryOptions = {
-      steps: 32,
-      depth: 0.8,
-      bevelEnabled: true,
-      bevelThickness: 0.05,
-      bevelSize: 0.02,
-      bevelSegments: 8,
-    }
-
-    return new THREE.ExtrudeGeometry(shape, settings)
+    return new THREE.ExtrudeGeometry(shape, { steps: 8, depth: 0.8, bevelEnabled: true, bevelThickness: 0.05, bevelSize: 0.02, bevelSegments: 4 })
   }, [])
 
   useFrame((state) => {
     const t = state.clock.getElapsedTime()
     meshRef.current.rotation.y = t * 0.3
-    if (liquidRef.current) {
-      liquidRef.current.position.y = Math.sin(t * 0.5) * 0.05
-    }
+    liquidRef.current.position.y = Math.sin(t * 0.5) * 0.05
   })
 
   return (
     <group ref={meshRef as any}>
-      {/* Bottle body */}
       <mesh geometry={bottleShape} position={[0, 0, 0]}>
-        <MeshTransmissionMaterial
-          backside
-          thickness={0.3}
-          roughness={0.1}
-          transmission={0.95}
-          ior={1.5}
-          chromaticAberration={0.06}
-          color={color}
-          transparent
-          opacity={0.6}
-        />
+        <meshPhysicalMaterial color={color} transparent opacity={0.4} roughness={0.2} metalness={0.1} envMapIntensity={0.5} />
       </mesh>
-
-      {/* Liquid inside */}
-      <mesh position={[0, -0.2, 0]} scale={[0.7, 0.6, 0.7]}>
-        <sphereGeometry args={[0.5, 32, 32]} />
-        <meshPhysicalMaterial
-          color={liquidColor}
-          emissive={liquidColor}
-          emissiveIntensity={0.3}
-          transparent
-          opacity={0.8}
-          roughness={0.1}
-          metalness={0.3}
-        />
+      <mesh ref={liquidRef} position={[0, -0.2, 0]} scale={[0.7, 0.6, 0.7]}>
+        <sphereGeometry args={[0.5, 16, 16]} />
+        <meshBasicMaterial color={liquidColor} transparent opacity={0.6} />
       </mesh>
-
-      {/* Cap */}
       <mesh position={[0, 2.1, 0]}>
-        <cylinderGeometry args={[0.25, 0.3, 0.3, 16]} />
-        <meshPhysicalMaterial
-          color="#222"
-          metalness={0.8}
-          roughness={0.2}
-        />
+        <cylinderGeometry args={[0.25, 0.3, 0.3, 8]} />
+        <meshPhysicalMaterial color="#222" metalness={0.8} roughness={0.2} />
       </mesh>
-
-      {/* Glow ring */}
       <mesh position={[0, 0.5, 0]} rotation={[Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.6, 0.7, 64]} />
-        <meshBasicMaterial
-          color={liquidColor}
-          transparent
-          opacity={0.3}
-          side={THREE.DoubleSide}
-        />
+        <ringGeometry args={[0.6, 0.7, 32]} />
+        <meshBasicMaterial color={liquidColor} transparent opacity={0.2} side={THREE.DoubleSide} />
       </mesh>
-
-      {/* Particles orbiting */}
-      {Array.from({ length: 12 }).map((_, i) => (
-        <OrbitingParticle key={i} index={i} color={liquidColor} />
-      ))}
     </group>
   )
 }
 
-function OrbitingParticle({ index, color }: { index: number; color: string }) {
-  const ref = useRef<THREE.Mesh>(null!)
-  const angle = (index / 12) * Math.PI * 2
-  const radius = 0.8 + Math.random() * 0.3
-
-  useFrame((state) => {
-    const t = state.clock.getElapsedTime() * 0.5
-    ref.current.position.x = Math.cos(angle + t) * radius
-    ref.current.position.z = Math.sin(angle + t) * radius
-    ref.current.position.y = Math.sin(t * 2 + index) * 0.3
-  })
-
-  return (
-    <mesh ref={ref}>
-      <sphereGeometry args={[0.03, 8, 8]} />
-      <meshBasicMaterial color={color} />
-    </mesh>
-  )
+function GLBMango() {
+  const { scene } = useGLTF("/models/mango.glb")
+  return <primitive object={scene.clone(true)} scale={0.8} />
 }
 
-function RealisticMango() {
-  const meshRef = useRef<THREE.Mesh>(null!)
-
-  const mangoGeo = useMemo(() => {
-    const geo = new THREE.SphereGeometry(0.4, 48, 36)
-    const pos = geo.attributes.position as THREE.BufferAttribute
-    const colors = new Float32Array(pos.count * 3)
-
-    for (let i = 0; i < pos.count; i++) {
-      let x = pos.getX(i)
-      let y = pos.getY(i)
-      let z = pos.getZ(i)
-
-      const len = Math.sqrt(x * x + y * y + z * z)
-      const nx = x / len, ny = y / len, nz = z / len
-
-      // Stretch to ellipsoid (mango is oval)
-      x *= 0.85
-      y *= 1.25
-      z *= 0.75
-
-      // Kidney shape: bulge one side, flatten the other
-      const side = Math.sign(x)
-      const bulge = 1 + side * 0.08 * (1 - Math.abs(y)) * (1 - Math.abs(z) * 0.5)
-      x *= bulge
-
-      // Slight hook/beak at top
-      const beak = 1 + 0.12 * Math.max(0, -y) * Math.max(0, -x) * 2
-      x *= beak
-      z *= 1 + 0.06 * Math.max(0, -y)
-
-      // Crease along one side (mango characteristic)
-      const crease = 1 - 0.08 * Math.max(0, -x) * (1 - Math.abs(y)) * Math.exp(-z * z * 4)
-      x *= crease
-
-      pos.setXYZ(i, x, y, z)
-
-      // Color: gradient from green (top) → yellow → orange → red (bottom/blush)
-      const greenT = Math.max(0, Math.min(1, (y + 1) * 0.6))
-      const blushT = Math.max(0, Math.min(1, (-y + 0.3))) * Math.max(0, Math.min(1, x + 0.3))
-
-      let r = 0.95 - blushT * 0.3
-      let g = 0.7 * greenT + 0.3 * (1 - blushT)
-      let b = 0.1 * greenT + 0.05 * (1 - blushT)
-
-      // Add slight natural variation
-      const noise = 1 + (Math.sin(x * 12 + y * 8 + z * 10) * 0.03)
-      r *= noise; g *= noise; b *= noise
-
-      colors[i * 3] = r
-      colors[i * 3 + 1] = g
-      colors[i * 3 + 2] = b
-    }
-
-    geo.setAttribute("color", new THREE.BufferAttribute(colors, 3))
-    geo.computeVertexNormals()
-    return geo
-  }, [])
-
-  useFrame((state) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x = Math.sin(state.clock.getElapsedTime() * 0.3) * 0.1
-      meshRef.current.rotation.z = Math.cos(state.clock.getElapsedTime() * 0.2) * 0.05
-    }
-  })
-
+function ProceduralMango() {
+  const mangoGeo = useMemo(() => createMangoGeometryLite(), [])
   return (
-    <Float speed={1.5} rotationIntensity={0.3} floatIntensity={1.2}>
-      {/* Mango body */}
-      <mesh ref={meshRef} geometry={mangoGeo} castShadow>
-        <meshPhysicalMaterial
-          vertexColors
-          roughness={0.35}
-          metalness={0.0}
-          clearcoat={0.15}
-          clearcoatRoughness={0.3}
-          envMapIntensity={0.6}
-          ior={1.4}
-        />
+    <Float speed={1.2} rotationIntensity={0.4} floatIntensity={1.0}>
+      <mesh geometry={mangoGeo} castShadow>
+        <meshStandardMaterial vertexColors roughness={0.4} metalness={0.0} />
       </mesh>
-
-      {/* Stem */}
       <mesh position={[0.02, 0.52, 0]} rotation={[0.3, 0, 0.2]}>
         <cylinderGeometry args={[0.015, 0.025, 0.08, 6]} />
-        <meshPhysicalMaterial color="#5C3A1E" roughness={0.9} />
+        <meshStandardMaterial color="#5C3A1E" roughness={0.9} />
       </mesh>
-
-      {/* Leaf */}
       <mesh position={[0.04, 0.58, 0]} rotation={[0.8, 0.3, 0.6]}>
         <planeGeometry args={[0.08, 0.18]} />
-        <meshPhysicalMaterial
-          color="#22c55e"
-          side={THREE.DoubleSide}
-          roughness={0.7}
-          metalness={0.0}
-        />
+        <meshStandardMaterial color="#22c55e" side={THREE.DoubleSide} roughness={0.7} />
       </mesh>
     </Float>
   )
 }
 
+function RealisticMango() {
+  return (
+    <Suspense fallback={<ProceduralMango />}>
+      <GLBMango />
+    </Suspense>
+  )
+}
+
 function Particles() {
-  const count = 200
-  const positions = useMemo(() => {
+  const count = 120
+  const ref = useRef<THREE.Points>(null!)
+
+  const [positions, speeds] = useMemo(() => {
     const pos = new Float32Array(count * 3)
+    const spd = new Float32Array(count)
     for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * 20
       pos[i * 3 + 1] = (Math.random() - 0.5) * 20
       pos[i * 3 + 2] = (Math.random() - 0.5) * 20
+      spd[i] = 0.2 + Math.random() * 0.5
     }
-    return pos
+    return [pos, spd]
   }, [])
 
+  useFrame((state) => {
+    const t = state.clock.getElapsedTime()
+    const pos = ref.current.geometry.attributes.position.array as Float32Array
+    for (let i = 0; i < count; i++) {
+      pos[i * 3 + 1] += Math.sin(t * speeds[i] + i) * 0.001
+    }
+    ref.current.geometry.attributes.position.needsUpdate = true
+  })
+
   return (
-    <points>
+    <points ref={ref}>
       <bufferGeometry>
-        <bufferAttribute
-          attach="attributes-position"
-          count={count}
-          array={positions}
-          itemSize={3}
-        />
+        <bufferAttribute attach="attributes-position" count={count} array={positions} itemSize={3} />
       </bufferGeometry>
-      <pointsMaterial
-        size={0.03}
-        color="#FFD700"
-        transparent
-        opacity={0.6}
-        sizeAttenuation
-      />
+      <pointsMaterial size={0.03} color="#FFD700" transparent opacity={0.5} sizeAttenuation />
     </points>
   )
 }
@@ -273,14 +204,34 @@ function Scene({ bottleColor, liquidColor }: { bottleColor: string; liquidColor:
       <directionalLight position={[-4, -2, -6]} intensity={0.2} color="#FFD700" />
       <pointLight position={[0, 3, 2]} intensity={0.8} color={liquidColor} />
 
-      <Stars radius={30} depth={50} count={500} factor={4} saturation={0} fade speed={1} />
+      <Stars radius={30} depth={50} count={200} factor={3} saturation={0} fade speed={1} />
 
-      <group position={[0, 0, 0]}>
-        <Bottle color={bottleColor} liquidColor={liquidColor} />
-        <group position={[1.2, -0.5, 0]}>
-          <RealisticMango />
-        </group>
+      {/* Pulsing glow behind mango */}
+      <PulsingGlow color={liquidColor} />
+
+      {/* Orbiting rings */}
+      <GlowRing color={liquidColor} radius={1.2} speed={0.5} />
+      <GlowRing color="#FFD700" radius={1.5} speed={-0.3} />
+
+      {/* Orbiting particles */}
+      <OrbitingParticles count={30} color="#FFD700" />
+      <OrbitingParticles count={20} color={liquidColor} />
+
+      {/* Main mango */}
+      <group position={[0, 0.3, 0]} scale={2.5}>
+        <RealisticMango />
       </group>
+
+      {/* Bottle */}
+      <group position={[1.8, -0.8, 0]} scale={0.4}>
+        <Bottle color={bottleColor} liquidColor={liquidColor} />
+      </group>
+
+      {/* Ground reflection ring */}
+      <mesh position={[0, -0.7, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <ringGeometry args={[1.6, 2.4, 48]} />
+        <meshBasicMaterial color={liquidColor} transparent opacity={0.06} side={THREE.DoubleSide} />
+      </mesh>
 
       <Particles />
 
@@ -306,7 +257,7 @@ export default function MangoScene({
 }) {
   return (
     <div className="absolute inset-0 z-0">
-      <Canvas camera={{ position: [0, 0, 5], fov: 45 }}>
+      <Canvas camera={{ position: [0, 0, 5], fov: 45 }} dpr={[1, 1.5]}>
         <Scene bottleColor={bottleColor} liquidColor={liquidColor} />
       </Canvas>
     </div>

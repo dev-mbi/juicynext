@@ -1,75 +1,110 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { products } from "@/data/products"
-import BottleIcon from "@/components/BottleIcon"
+import MangoIcon from "@/components/MangoIcon"
+import Reveal from "@/components/Reveal"
+import { useCart } from "@/lib/cart"
 
 const mangoSeries = products.filter((p) => p.series === "Mango Series")
 
+function TiltCard({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null!)
+  const [tilt, setTilt] = useState({ x: 0, y: 0 })
+
+  const handleMouse = (e: React.MouseEvent) => {
+    const rect = ref.current.getBoundingClientRect()
+    const x = (e.clientX - rect.left) / rect.width - 0.5
+    const y = (e.clientY - rect.top) / rect.height - 0.5
+    setTilt({ x: y * -12, y: x * 12 })
+  }
+
+  const handleLeave = () => setTilt({ x: 0, y: 0 })
+
+  return (
+    <div
+      ref={ref}
+      onMouseMove={handleMouse}
+      onMouseLeave={handleLeave}
+      className={className}
+      style={{
+        perspective: "800px",
+        transform: `rotateX(${tilt.x}deg) rotateY(${tilt.y}deg)`,
+        transition: tilt.x === 0 ? "transform 0.5s ease" : "none",
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
 export default function MangoCollection() {
   const [activeIndex, setActiveIndex] = useState(0)
+  const [added, setAdded] = useState(false)
+  const addItem = useCart((s) => s.addItem)
   const active = mangoSeries[activeIndex]
 
   return (
     <section id="collection" className="relative py-32 px-6">
       <div className="mx-auto max-w-7xl">
         {/* Section header */}
-        <div className="mb-16 text-center">
-          <h2 className="font-heading text-3xl font-bold tracking-wider text-white md:text-5xl">
-            🥭 Mango <span className="text-juicy-gold">Collection</span>
-          </h2>
-          <p className="mt-3 text-zinc-500">
-            Swipe through the full Mango series — each with its own vibe
-          </p>
-        </div>
+        <Reveal>
+          <div className="mb-16 text-center">
+            <h2 className="font-heading text-3xl font-bold tracking-wider text-white md:text-5xl">
+              🥭 Mango <span className="text-juicy-gold">Collection</span>
+            </h2>
+            <p className="mt-3 text-zinc-500">
+              Swipe through the full Mango series — each with its own vibe
+            </p>
+          </div>
+        </Reveal>
 
         {/* Product cards */}
         <div className="grid gap-6 md:grid-cols-2">
           {mangoSeries.map((product, index) => (
-            <button
-              key={product.id}
-              onClick={() => setActiveIndex(index)}
-              className={`group relative overflow-hidden rounded-2xl border p-6 text-center transition-all duration-500 ${
-                index === activeIndex
-                  ? "border-juicy-gold/50 bg-juicy-gold/10 shadow-lg shadow-juicy-gold/20"
-                  : "border-white/5 bg-juicy-card hover:border-white/20"
-              }`}
-            >
-              {/* Glow */}
-              <div
-                className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
-                style={{
-                  background: `radial-gradient(circle at 50% 0%, ${product.glowColor}20 0%, transparent 70%)`,
-                }}
-              />
-
-              <div className="relative z-10">
-                {/* Bottle emoji placeholder */}
+            <TiltCard key={product.id}>
+              <button
+                onClick={() => setActiveIndex(index)}
+                className={`group relative w-full overflow-hidden rounded-2xl border p-6 text-center transition-all duration-500 ${
+                  index === activeIndex
+                    ? "border-juicy-gold/50 bg-juicy-gold/10 shadow-lg shadow-juicy-gold/20"
+                    : "border-white/5 bg-juicy-card hover:border-white/20"
+                }`}
+              >
+                {/* Glow */}
                 <div
-                  className="mx-auto mb-4 transition-transform duration-500 group-hover:scale-110"
-                  style={{ filter: `drop-shadow(0 0 12px ${product.glowColor}60)` }}
-                >
-                  <BottleIcon color1={product.themeColor} color2={product.glowColor} />
-                </div>
+                  className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100"
+                  style={{
+                    background: `radial-gradient(circle at 50% 0%, ${product.glowColor}20 0%, transparent 70%)`,
+                  }}
+                />
 
-                <h3 className="font-heading text-sm font-bold tracking-wide text-white">
-                  {product.name}
-                </h3>
-                <p className="mt-1 text-xs text-zinc-500">{product.tagline}</p>
+                <div className="relative z-10">
+                  <div
+                    className="mx-auto mb-4 transition-transform duration-500 group-hover:scale-110"
+                    style={{ filter: `drop-shadow(0 0 12px ${product.glowColor}60)` }}
+                  >
+                    <MangoIcon className="w-12 h-12" color1={product.themeColor} color2={product.glowColor} />
+                  </div>
 
-                {/* Color indicator */}
-                <div className="mt-3 flex justify-center gap-1">
-                  <span
-                    className="h-1.5 w-6 rounded-full"
-                    style={{ backgroundColor: product.themeColor }}
-                  />
-                  <span
-                    className="h-1.5 w-6 rounded-full"
-                    style={{ backgroundColor: product.glowColor }}
-                  />
+                  <h3 className="font-heading text-sm font-bold tracking-wide text-white">
+                    {product.name}
+                  </h3>
+                  <p className="mt-1 text-xs text-zinc-500">{product.tagline}</p>
+
+                  <div className="mt-3 flex justify-center gap-1">
+                    <span
+                      className="h-1.5 w-6 rounded-full"
+                      style={{ backgroundColor: product.themeColor }}
+                    />
+                    <span
+                      className="h-1.5 w-6 rounded-full"
+                      style={{ backgroundColor: product.glowColor }}
+                    />
+                  </div>
                 </div>
-              </div>
-            </button>
+              </button>
+            </TiltCard>
           ))}
         </div>
 
@@ -84,7 +119,7 @@ export default function MangoCollection() {
                 boxShadow: `0 0 60px ${active.glowColor}20`,
               }}
             >
-              <BottleIcon className="text-7xl" color1={active.themeColor} color2={active.glowColor} />
+              <MangoIcon className="w-20 h-20" color1={active.themeColor} color2={active.glowColor} />
             </div>
 
             {/* Info */}
@@ -106,12 +141,25 @@ export default function MangoCollection() {
                   Rs. {active.price}
                 </span>
                 {active.status === "active" ? (
-                  <a
-                    href="#buy"
+                  <button
+                    onClick={() => {
+                      addItem({
+                        productId: active.id,
+                        name: active.name,
+                        slug: active.slug,
+                        price: active.price,
+                        sizeMl: 250,
+                        sizeLabel: "250 ml",
+                        themeColor: active.themeColor,
+                        glowColor: active.glowColor,
+                      })
+                      setAdded(true)
+                      setTimeout(() => setAdded(false), 2000)
+                    }}
                     className="rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-6 py-2 text-sm font-semibold text-black transition-all hover:scale-105"
                   >
-                    Add to Cart
-                  </a>
+                    {added ? "✓ Added!" : "Add to Cart"}
+                  </button>
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full border border-juicy-purple/30 bg-juicy-purple/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-juicy-purple">
                     <span className="h-1.5 w-1.5 rounded-full bg-juicy-purple" />

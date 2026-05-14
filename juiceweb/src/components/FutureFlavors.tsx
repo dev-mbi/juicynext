@@ -1,10 +1,14 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { futureFlavors } from "@/data/products"
+
+const ThreeBackground = dynamic(() => import("@/components/3d/ThreeBackground"), { ssr: false })
 
 export default function FutureFlavors() {
   return (
-    <section id="future" className="relative py-32 px-6">
+    <section id="future" className="relative overflow-hidden py-32 px-6">
+      <ThreeBackground color="#8B00FF" particleCount={40} />
       <div className="mx-auto max-w-7xl">
         {/* Section header */}
         <div className="mb-16 text-center">
