@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useCart } from "@/lib/cart"
+import { api } from "@/lib/api"
 import MangoIcon from "@/components/MangoIcon"
 import Header from "@/components/Header"
 import Footer from "@/components/Footer"
@@ -22,9 +23,8 @@ export default function BuyPage() {
     setSubmitting(true)
 
     try {
-      const res = await fetch("http://localhost:8000/api/orders", {
+      const res = await api("/api/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           customer_name: form.name,
           customer_phone: form.phone,

@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { api } from "@/lib/api"
 
 type Product = {
   id: number
@@ -48,11 +49,10 @@ export default function AdminPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [form, setForm] = useState({ name: "", slug: "", price: 60, stock: 0, status: "active", category: "", series: "", flavor: "", tagline: "", description: "", theme_color: "#FFA500", glow_color: "#FFD700" })
 
-  const api = (path: string, options?: RequestInit) =>
-    fetch(`http://localhost:8000${path}`, {
+  const authedApi = (path: string, options?: RequestInit) =>
+    api(path, {
       ...options,
       headers: {
-        "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options?.headers,
       },
@@ -61,8 +61,8 @@ export default function AdminPage() {
   const fetchData = async () => {
     setLoading(true)
     const [pRes, oRes] = await Promise.all([
-      api("/api/products"),
-      token ? api("/api/orders") : Promise.resolve(null),
+      authedApi("/api/products"),
+      token ? authedApi("/api/orders") : Promise.resolve(null),
     ])
     if (pRes.ok) setProducts(await pRes.json())
     if (oRes?.ok) setOrders(await oRes.json())
@@ -75,9 +75,8 @@ export default function AdminPage() {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
     try {
-      const res = await fetch("http://localhost:8000/api/auth/login", {
+      const res = await api("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: formData.get("username"), password: formData.get("password") }),
       })
       if (!res.ok) throw new Error()
@@ -91,7 +90,7 @@ export default function AdminPage() {
   const handleAddProduct = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const res = await api("/api/products", {
+      const res = await authedApi("/api/products", {
         method: "POST",
         body: JSON.stringify(form),
       })
@@ -108,7 +107,7 @@ export default function AdminPage() {
     const product = products.find((p) => p.id === id)
     if (!product) return
     try {
-      await api(`/api/products/${id}`, {
+      await authedApi(`/api/products/${id}`, {
         method: "PUT",
         body: JSON.stringify({ ...product, stock }),
       })
@@ -201,7 +200,7 @@ export default function AdminPage() {
                       const formData = new FormData()
                       formData.append("file", file)
                       try {
-                        const res = await fetch(`http://localhost:8000/api/upload/${slug}`, {
+                        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000"}/api/upload/${slug}`, {
                           method: "POST",
                           headers: token ? { Authorization: `Bearer ${token}` } : {},
                           body: formData,
