@@ -1,0 +1,299 @@
+{% extends "base.html" %}
+{% block title %}JuicyNext — Admin{% endblock %}
+{% block desc %}JuicyNext Admin Panel.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .fade-in { opacity: 0; transform: translateY(15px); transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+  .tab-btn { transition: all 0.2s; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="app" class="min-h-screen bg-juicy-dark p-4 md:p-8 text-white">
+  <!-- Login Screen -->
+  <div id="login-screen" class="flex min-h-screen items-center justify-center -m-4 md:-m-8 p-8">
+    <div class="w-full max-w-sm rounded-2xl border border-white/5 bg-juicy-card p-8 text-center fade-in visible">
+      <div class="mb-4 text-4xl animate-bounce-soft">🔐</div>
+      <h1 class="font-heading text-xl font-bold text-white">Admin Login</h1>
+      <p class="mt-1 text-xs text-zinc-500">JuicyNext Admin Panel</p>
+      <form id="login-form" class="mt-6 space-y-4">
+        <input id="login-user" value="admin" placeholder="Username" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+        <input id="login-pass" type="password" value="juicynext123" placeholder="Password" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+        <button type="submit" class="w-full rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold py-3 text-sm font-bold text-black transition-all hover:scale-[1.02]">Login</button>
+      </form>
+      <p class="mt-4 text-[10px] text-zinc-700">Default: admin / juicynext123</p>
+    </div>
+  </div>
+
+  <!-- Dashboard -->
+  <div id="dashboard" class="hidden">
+    <div class="mx-auto max-w-6xl">
+      <div class="mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+          <h1 class="font-heading text-2xl font-bold text-juicy-gold">JuicyNext Admin</h1>
+          <p class="text-sm text-zinc-500">Manage products & orders</p>
+        </div>
+        <div class="flex items-center gap-4">
+          <span id="stats-badge" class="rounded-full bg-juicy-gold/10 px-3 py-1 text-xs text-juicy-gold">Loading...</span>
+          <button onclick="logout()" class="rounded-full border border-white/10 px-4 py-1.5 text-xs text-zinc-400 transition-colors hover:border-white/30 hover:text-white">Logout</button>
+        </div>
+      </div>
+
+      <div class="mb-6 flex gap-2">
+        <button onclick="switchTab('products')" id="tab-products" class="tab-btn rounded-full px-5 py-2 text-xs font-semibold bg-juicy-gold/20 text-juicy-gold">Products</button>
+        <button onclick="switchTab('orders')" id="tab-orders" class="tab-btn rounded-full px-5 py-2 text-xs font-semibold text-zinc-500 hover:text-white">Orders</button>
+      </div>
+
+      <!-- Products Tab -->
+      <div id="panel-products">
+        <button onclick="toggleAddForm()" id="add-product-btn" class="mb-4 rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-5 py-2 text-xs font-bold text-black transition-all hover:scale-105">+ Add Product</button>
+
+        <form id="add-form" class="hidden mb-6 grid grid-cols-2 gap-4 rounded-2xl border border-white/5 bg-juicy-card p-6 md:grid-cols-3">
+          <input id="af-name" placeholder="Name" required class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <input id="af-slug" placeholder="Slug" required class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <input id="af-price" type="number" value="60" placeholder="Price" required class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <input id="af-stock" type="number" value="0" placeholder="Stock" class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <select id="af-status" class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none focus:border-juicy-gold/50">
+            <option value="active">Active</option>
+            <option value="coming_soon">Coming Soon</option>
+          </select>
+          <input id="af-tagline" placeholder="Tagline" class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <input id="af-desc" placeholder="Description" class="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+          <div class="flex gap-2">
+            <input id="af-theme" type="color" value="#FFA500" class="h-10 flex-1 rounded-xl border border-white/10 bg-white/5">
+            <input id="af-glow" type="color" value="#FFD700" class="h-10 flex-1 rounded-xl border border-white/10 bg-white/5">
+          </div>
+          <div class="col-span-full">
+            <input id="af-model" type="file" accept=".glb" class="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm text-zinc-400 file:mr-3 file:rounded-full file:border-0 file:bg-juicy-gold/20 file:px-3 file:py-1 file:text-xs file:font-semibold file:text-juicy-gold">
+          </div>
+          <button type="submit" class="col-span-full rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold py-3 text-sm font-bold text-black transition-all hover:scale-[1.02]">Save Product</button>
+        </form>
+
+        <div id="products-table" class="overflow-hidden rounded-2xl border border-white/5 bg-juicy-card">
+          <div class="p-8 text-center text-zinc-600">Loading products...</div>
+        </div>
+      </div>
+
+      <!-- Orders Tab -->
+      <div id="panel-orders" class="hidden">
+        <div id="orders-list" class="space-y-4">
+          <div class="rounded-2xl border border-white/5 bg-juicy-card p-10 text-center text-zinc-600">Loading orders...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin
+let token = localStorage.getItem('juicyAdminToken')
+let products = []
+let orders = []
+let showAdd = false
+
+// ===== Auth =====
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+  e.preventDefault()
+  try {
+    const res = await fetch(API + '/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: document.getElementById('login-user').value, password: document.getElementById('login-pass').value })
+    })
+    if (!res.ok) throw new Error()
+    const data = await res.json()
+    token = data.access_token
+    localStorage.setItem('juicyAdminToken', token)
+    showDashboard()
+  } catch {
+    alert('Login failed. Ensure backend is running.\n\nDefault: admin / juicynext123')
+  }
+})
+
+function logout() {
+  token = null
+  localStorage.removeItem('juicyAdminToken')
+  document.getElementById('dashboard').classList.add('hidden')
+  document.getElementById('login-screen').classList.remove('hidden')
+}
+
+// ===== Dashboard =====
+async function fetchData() {
+  try {
+    const headers = token ? { Authorization: 'Bearer ' + token } : {}
+    const [pRes, oRes] = await Promise.all([
+      fetch(API + '/api/products', { headers }),
+      fetch(API + '/api/orders', { headers })
+    ])
+    if (pRes.ok) products = await pRes.json()
+    if (oRes.ok) orders = await oRes.json()
+    renderProducts()
+    renderOrders()
+    document.getElementById('stats-badge').textContent = products.length + ' products · ' + orders.length + ' orders'
+  } catch {
+    document.getElementById('stats-badge').textContent = 'Error loading data'
+  }
+}
+
+function showDashboard() {
+  document.getElementById('login-screen').classList.add('hidden')
+  document.getElementById('dashboard').classList.remove('hidden')
+  fetchData()
+}
+
+function switchTab(tab) {
+  document.getElementById('panel-products').classList.toggle('hidden', tab !== 'products')
+  document.getElementById('panel-orders').classList.toggle('hidden', tab !== 'orders')
+  document.getElementById('tab-products').className = tab === 'products'
+    ? 'tab-btn rounded-full px-5 py-2 text-xs font-semibold bg-juicy-gold/20 text-juicy-gold'
+    : 'tab-btn rounded-full px-5 py-2 text-xs font-semibold text-zinc-500 hover:text-white'
+  document.getElementById('tab-orders').className = tab === 'orders'
+    ? 'tab-btn rounded-full px-5 py-2 text-xs font-semibold bg-juicy-gold/20 text-juicy-gold'
+    : 'tab-btn rounded-full px-5 py-2 text-xs font-semibold text-zinc-500 hover:text-white'
+}
+
+function toggleAddForm() {
+  showAdd = !showAdd
+  document.getElementById('add-form').classList.toggle('hidden', !showAdd)
+  document.getElementById('add-product-btn').textContent = showAdd ? 'Cancel' : '+ Add Product'
+}
+
+// ===== Products CRUD =====
+document.getElementById('add-form').addEventListener('submit', async function(e) {
+  e.preventDefault()
+  const body = {
+    name: document.getElementById('af-name').value,
+    slug: document.getElementById('af-slug').value,
+    price: Number(document.getElementById('af-price').value),
+    stock: Number(document.getElementById('af-stock').value),
+    status: document.getElementById('af-status').value,
+    tagline: document.getElementById('af-tagline').value || null,
+    description: document.getElementById('af-desc').value || null,
+    theme_color: document.getElementById('af-theme').value,
+    glow_color: document.getElementById('af-glow').value,
+  }
+  try {
+    const res = await fetch(API + '/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) throw new Error()
+    toggleAddForm()
+    document.getElementById('add-form').reset()
+    document.getElementById('af-price').value = '60'
+    document.getElementById('af-stock').value = '0'
+    fetchData()
+  } catch { alert('Failed to add product') }
+})
+
+async function deleteProduct(id) {
+  if (!confirm('Delete this product?')) return
+  try {
+    await fetch(API + '/api/products/' + id, { method: 'DELETE', headers: { Authorization: 'Bearer ' + token } })
+    fetchData()
+  } catch { alert('Failed to delete') }
+}
+
+async function updateStock(id, input) {
+  const val = Number(input.value)
+  const p = products.find(x => x.id === id)
+  if (!p || val === p.stock) return
+  try {
+    await fetch(API + '/api/products/' + id, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ ...p, stock: val })
+    })
+    fetchData()
+  } catch { alert('Failed to update stock') }
+}
+
+async function uploadModel(slug) {
+  const fileInput = document.getElementById('af-model')
+  const file = fileInput.files[0]
+  if (!file) return
+  const formData = new FormData()
+  formData.append('file', file)
+  try {
+    const res = await fetch(API + '/api/upload/' + slug, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+      body: formData
+    })
+    if (res.ok) alert('Model uploaded!')
+    else alert('Upload failed')
+  } catch { alert('Upload failed — ensure backend is running') }
+}
+
+function renderProducts() {
+  const container = document.getElementById('products-table')
+  if (products.length === 0) {
+    container.innerHTML = '<div class="p-8 text-center text-zinc-600">No products yet.</div>'
+    return
+  }
+  container.innerHTML = `<table class="w-full text-left text-sm"><thead><tr class="border-b border-white/5 text-zinc-500">
+    <th class="p-4 font-medium">ID</th><th class="p-4 font-medium">Name</th><th class="p-4 font-medium">Price</th>
+    <th class="p-4 font-medium">Stock</th><th class="p-4 font-medium">Status</th><th class="p-4 font-medium">Action</th>
+  </tr></thead><tbody>${products.map(p => `
+    <tr class="border-b border-white/5 transition-colors hover:bg-white/5">
+      <td class="p-4 text-zinc-400">${p.id}</td>
+      <td class="p-4 font-medium">${p.name}</td>
+      <td class="p-4 text-juicy-gold">Rs. ${p.price}</td>
+      <td class="p-4"><input type="number" value="${p.stock}" onblur="updateStock(${p.id}, this)" class="w-20 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-sm text-white outline-none focus:border-juicy-gold/50"></td>
+      <td class="p-4"><span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${p.status === 'active' ? 'bg-green-500/10 text-green-400' : 'bg-purple-500/10 text-purple-400'}">${p.status}</span></td>
+      <td class="p-4"><button onclick="deleteProduct(${p.id})" class="rounded-lg border border-red-500/20 px-3 py-1 text-xs text-red-400 transition-colors hover:bg-red-500/10">Delete</button></td>
+    </tr>`).join('')}</tbody></table>`
+}
+
+function renderOrders() {
+  const container = document.getElementById('orders-list')
+  if (orders.length === 0) {
+    container.innerHTML = '<div class="rounded-2xl border border-white/5 bg-juicy-card p-10 text-center text-zinc-600">No orders yet.</div>'
+    return
+  }
+  container.innerHTML = orders.map(o => `
+    <div class="rounded-2xl border border-white/5 bg-juicy-card p-6">
+      <div class="flex items-start justify-between">
+        <div>
+          <div class="flex items-center gap-3">
+            <h3 class="font-heading text-sm font-bold text-white">Order #${o.id}</h3>
+            <span class="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider ${o.status === 'pending' ? 'bg-yellow-500/10 text-yellow-400' : 'bg-green-500/10 text-green-400'}">${o.status}</span>
+          </div>
+          <p class="mt-1 text-xs text-zinc-500">${o.customer_name} · ${o.customer_phone}</p>
+          <p class="text-xs text-zinc-600">${o.customer_address || ''}</p>
+        </div>
+        <span class="font-heading text-lg font-bold text-juicy-gold">Rs. ${o.total}</span>
+      </div>
+      <div class="mt-4 border-t border-white/5 pt-4">
+        <p class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-zinc-600">Items · ${o.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment'}</p>
+        ${(o.items || []).map(item => `
+          <div class="flex items-center justify-between text-xs">
+            <span class="text-zinc-400">${item.product_name} × ${item.quantity}</span>
+            <span class="text-zinc-500">Rs. ${item.unit_price * item.quantity}</span>
+          </div>`).join('')}
+      </div>
+      ${o.created_at ? `<p class="mt-3 text-[10px] text-zinc-700">${new Date(o.created_at).toLocaleString()}</p>` : ''}
+    </div>`).join('')
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', () => {
+  if (token) showDashboard()
+  document.querySelectorAll('.fade-in').forEach((el, i) => { setTimeout(() => el.classList.add('visible'), i * 150) })
+
+  // Auto-slug from name
+  document.getElementById('af-name').addEventListener('input', function() {
+    document.getElementById('af-slug').value = this.value.toLowerCase().replace(/\\s+/g, '-')
+  })
+
+  // Auto-upload on file select
+  document.getElementById('af-model').addEventListener('change', function() {
+    const slug = document.getElementById('af-slug').value
+    if (slug) uploadModel(slug)
+  })
+})
+</script>
+{% endblock %}

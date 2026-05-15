@@ -5,7 +5,7 @@ from auth import get_current_user
 import os
 
 router = APIRouter()
-MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "public", "models")
+MODELS_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "models")
 
 
 @router.post("/api/upload/{slug}")

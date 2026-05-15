@@ -1,0 +1,518 @@
+{% extends "base.html" %}
+{% block head_extra %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/static/js/scenes.js"></script>
+<style>
+  .news-timeline-dot { width: 20px; height: 20px; border-radius: 50%; border-width: 2px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .news-timeline-dot-inner { width: 8px; height: 8px; border-radius: 50%; }
+  .product-card { transition: all 0.5s ease; }
+  .product-card:hover .product-glow { opacity: 1; }
+  .product-glow { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s; border-radius: 16px; }
+  .product-icon-wrap { transition: transform 0.5s; }
+  .product-card:hover .product-icon-wrap { transform: scale(1.1); }
+  .future-card { transition: all 0.5s; }
+  .future-card:hover { border-color: rgba(255,255,255,0.2); }
+  .future-card:hover .future-glow { opacity: 0.2; }
+  .future-glow { position: absolute; inset: 0; opacity: 0; transition: opacity 0.5s; border-radius: 16px; }
+  .future-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); opacity: 0; transition: opacity 0.3s; border-radius: 16px; }
+  .future-card:hover .future-overlay { opacity: 1; }
+  .reveal { opacity: 0; transform: translateY(40px); transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1); }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+  .hero-title { animation: roll-down 1s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+  .hero-subtitle { animation: roll-up 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; }
+  .hero-cta { animation: roll-down 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.6s both; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% set products = products|default([]) %}
+{% set future = future|default([]) %}
+{% set news = news|default([]) %}
+{% set flagship = products[0] if products else None %}
+
+<!-- Floating Particles -->
+<div class="particles" id="particles"></div>
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-md border-b border-white/5">
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+    <a href="/" class="flex items-center gap-2">
+      <span class="text-xl md:text-2xl">🥭</span>
+      <span class="font-heading text-base font-bold tracking-wider text-juicy-gold md:text-lg">JuicyNext</span>
+    </a>
+    <nav class="hidden items-center gap-8 text-sm md:flex">
+      <a href="#collection" class="text-zinc-400 transition-colors hover:text-white">Collection</a>
+      <a href="#future" class="text-zinc-400 transition-colors hover:text-white">Coming Soon</a>
+      <a href="/track" class="text-zinc-400 transition-colors hover:text-white">Track</a>
+    </nav>
+    <div class="flex items-center gap-2 md:gap-4">
+      <button onclick="toggleCart()" class="relative rounded-full p-2 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 100 4 2 2 0 000-4z"/>
+        </svg>
+        <span id="cart-badge" class="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-juicy-orange text-[10px] font-bold text-black hidden">0</span>
+      </button>
+      <a href="/buy" class="hidden rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-4 py-2 text-xs font-semibold text-black transition-all hover:scale-105 sm:inline-block md:px-6 md:text-sm">Buy Now</a>
+      <button onclick="document.getElementById('mobile-menu').classList.toggle('hidden')" class="rounded-full p-2 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white md:hidden">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+  <div id="mobile-menu" class="hidden border-t border-white/5 bg-black/90 px-4 py-4 md:hidden">
+    <nav class="flex flex-col gap-4">
+      <a href="#collection" onclick="closeMobileMenu()" class="text-sm text-zinc-400 transition-colors hover:text-white">Collection</a>
+      <a href="#future" onclick="closeMobileMenu()" class="text-sm text-zinc-400 transition-colors hover:text-white">Coming Soon</a>
+      <a href="/track" onclick="closeMobileMenu()" class="text-sm text-zinc-400 transition-colors hover:text-white">Track Order</a>
+      <a href="/buy" onclick="closeMobileMenu()" class="text-sm font-semibold text-juicy-gold transition-colors hover:text-juicy-orange">Buy Now</a>
+    </nav>
+  </div>
+</header>
+
+<!-- Cart Drawer -->
+<div id="cart-overlay" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm hidden" onclick="toggleCart()"></div>
+<div id="cart-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-md bg-juicy-dark border-l border-white/5 translate-x-full transition-transform duration-300">
+  <div class="flex h-full flex-col">
+    <div class="flex items-center justify-between border-b border-white/5 px-6 py-4">
+      <h2 class="font-heading text-lg font-bold text-white">Cart</h2>
+      <button onclick="toggleCart()" class="rounded-full p-2 text-zinc-500 transition-colors hover:bg-white/10 hover:text-white">
+        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <div id="cart-items" class="flex-1 overflow-y-auto px-6 py-4"></div>
+    <div id="cart-footer" class="border-t border-white/5 px-6 py-4 hidden">
+      <div class="mb-4 flex items-center justify-between">
+        <span class="text-sm text-zinc-400">Total</span>
+        <span id="cart-total" class="font-heading text-xl font-bold text-juicy-gold">Rs. 0</span>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="clearCart()" class="flex-1 rounded-full border border-white/10 py-3 text-xs text-zinc-400 transition-colors hover:border-white/30 hover:text-white">Clear</button>
+        <a href="/buy" onclick="toggleCart()" class="flex-1 rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold py-3 text-center text-xs font-bold text-black transition-all hover:scale-[1.02]">Checkout</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+  <!-- Hero Section -->
+  <section id="hero" class="relative flex min-h-screen items-center justify-center overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-black via-juicy-dark to-black"></div>
+    <div id="mango-scene" class="absolute inset-0 z-0"></div>
+    <div class="absolute top-1/4 left-1/4 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-juicy-gold/20 blur-[120px]"></div>
+    <div class="absolute bottom-1/4 right-1/4 h-80 w-80 translate-x-1/2 translate-y-1/2 rounded-full bg-juicy-orange/20 blur-[100px]"></div>
+
+    <div class="relative z-10 flex flex-col items-center px-6 text-center mt-20">
+      <div class="mb-4 hero-title">
+        <h1 class="font-heading text-6xl font-black tracking-[0.15em] md:text-8xl">
+          <span class="gradient-text animate-gradient inline-block">JuicyNext</span>
+        </h1>
+      </div>
+      <div class="mb-4 hero-subtitle">
+        <span class="text-xs font-semibold tracking-[0.3em] text-zinc-600 uppercase">presents</span>
+      </div>
+      <div class="hero-cta">
+        <div class="inline-flex items-center gap-2 rounded-full border border-juicy-gold/30 bg-juicy-gold/10 px-4 py-1.5 text-xs font-semibold tracking-wider text-juicy-gold mb-6">
+          <span class="h-1.5 w-1.5 rounded-full bg-juicy-gold animate-pulse"></span>
+          SEASON 1 — NOW AVAILABLE
+        </div>
+        <h2 class="font-heading text-5xl font-black tracking-wider md:text-7xl">
+          <span class="gradient-text animate-gradient">{{ flagship.name if flagship else "Mango" }}</span>
+        </h2>
+        <p class="mt-4 text-lg text-zinc-400 md:text-xl">{{ flagship.tagline if flagship else "Original Fresh Mango" }}</p>
+        <p class="mt-1 text-xs tracking-widest text-zinc-600 uppercase">Premium Pakistani Craft</p>
+      </div>
+      <div class="mt-10 flex flex-col items-center gap-4 sm:flex-row hero-cta">
+        <a href="#collection" class="group inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-8 py-3 font-semibold text-black transition-all hover:scale-105 hover:shadow-lg hover:shadow-juicy-orange/30">
+          Explore Flavor <span class="transition-transform group-hover:translate-x-1">→</span>
+        </a>
+        <a href="/buy" class="inline-flex items-center gap-2 rounded-full border border-white/20 px-8 py-3 font-semibold text-white transition-all hover:border-juicy-gold/50 hover:bg-white/5 hover:shadow-lg hover:shadow-juicy-gold/10">
+          Buy Now <span class="text-juicy-gold">Rs. {{ flagship.price if flagship else 60 }}</span>
+        </a>
+      </div>
+    </div>
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 animate-bounce z-10">
+      <svg class="h-6 w-6 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/>
+      </svg>
+    </div>
+  </section>
+
+  <!-- Mango Collection -->
+  <section id="collection" class="relative py-32 px-6">
+    <div class="mx-auto max-w-7xl">
+      <div class="reveal mb-16 text-center">
+        <h2 class="font-heading text-3xl font-bold tracking-wider text-white md:text-5xl">
+          🥭 Mango <span class="text-juicy-gold">Collection</span>
+        </h2>
+        <p class="mt-3 text-zinc-500">Swipe through the full Mango series — each with its own vibe</p>
+      </div>
+
+      <div class="grid gap-6 md:grid-cols-2">
+        {% for p in products %}
+        <div class="tilt-card" onmousemove="tiltCard(this, event)" onmouseleave="untiltCard(this)">
+          <div class="tilt-card-inner cursor-pointer rounded-2xl border p-6 text-center transition-all duration-500 product-card {% if loop.first %}border-juicy-gold/50 bg-juicy-gold/10 shadow-lg shadow-juicy-gold/20{% else %}border-white/5 bg-juicy-card hover:border-white/20{% endif %}"
+               onclick="selectProduct({{ p.id }})">
+            <div class="product-glow" style="background: radial-gradient(circle at 50% 0%, {{ p.glow_color }}20 0%, transparent 70%);"></div>
+            <div class="relative z-10">
+              <div class="product-icon-wrap mx-auto mb-4" style="filter: drop-shadow(0 0 12px {{ p.glow_color }}60);">
+                <svg class="w-12 h-12 mx-auto" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <defs>
+                    <radialGradient id="mb-{{ p.id }}" cx="0.4" cy="0.35" r="0.7">
+                      <stop offset="0%" stop-color="#FFE066"/>
+                      <stop offset="30%" stop-color="#FFD700"/>
+                      <stop offset="60%" stop-color="{{ p.theme_color }}"/>
+                      <stop offset="100%" stop-color="{{ p.glow_color }}"/>
+                    </radialGradient>
+                  </defs>
+                  <g filter="url(#s-{{ p.id }})">
+                    <path d="M60 15 C85 15 105 35 108 60 C111 85 100 110 80 120 C60 130 40 125 25 110 C10 95 5 75 10 55 C15 35 35 15 60 15Z" fill="url(#mb-{{ p.id }})"/>
+                    <path d="M60 15 C85 15 105 35 108 60 C111 85 100 110 80 120 C60 130 40 125 25 110 C10 95 5 75 10 55 C15 35 35 15 60 15Z" fill="url(#mb-{{ p.id }})" opacity="0.6"/>
+                    <path d="M35 40 C45 30 65 28 75 35" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+                    <path d="M30 55 C35 45 45 38 55 38" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.2"/>
+                  </g>
+                  <rect x="56" y="8" width="8" height="12" rx="3" fill="#5C3A1E"/>
+                  <path d="M60 12 C65 2 80 -2 90 2 C80 8 68 12 60 12Z" fill="#22c55e" stroke="#15803d" stroke-width="0.5"/>
+                </svg>
+              </div>
+              <h3 class="font-heading text-sm font-bold tracking-wide text-white">{{ p.name }}</h3>
+              <p class="mt-1 text-xs text-zinc-500">{{ p.tagline }}</p>
+              <div class="mt-3 flex justify-center gap-1">
+                <span class="h-1.5 w-6 rounded-full" style="background:{{ p.theme_color }}"></span>
+                <span class="h-1.5 w-6 rounded-full" style="background:{{ p.glow_color }}"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Active product detail -->
+      {% set active = products[0] if products else None %}
+      {% if active %}
+      <div class="mt-12 rounded-3xl border border-white/5 bg-juicy-card p-8 md:p-12">
+        <div class="flex flex-col items-center gap-8 md:flex-row">
+          <div class="flex h-48 w-48 shrink-0 items-center justify-center rounded-2xl animate-float" style="background: radial-gradient(circle, {{ active.glow_color }}20 0%, transparent 70%); box-shadow: 0 0 60px {{ active.glow_color }}20;">
+            <svg class="w-20 h-20" viewBox="0 0 120 140" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <radialGradient id="mb-{{ active.id }}" cx="0.4" cy="0.35" r="0.7">
+                <stop offset="0%" stop-color="#FFE066"/>
+                <stop offset="30%" stop-color="#FFD700"/>
+                <stop offset="60%" stop-color="{{ active.theme_color }}"/>
+                <stop offset="100%" stop-color="{{ active.glow_color }}"/>
+              </radialGradient>
+              <g>
+                <path d="M60 15 C85 15 105 35 108 60 C111 85 100 110 80 120 C60 130 40 125 25 110 C10 95 5 75 10 55 C15 35 35 15 60 15Z" fill="url(#mb-{{ active.id }})"/>
+                <path d="M35 40 C45 30 65 28 75 35" stroke="white" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+              </g>
+              <rect x="56" y="8" width="8" height="12" rx="3" fill="#5C3A1E"/>
+              <path d="M60 12 C65 2 80 -2 90 2 C80 8 68 12 60 12Z" fill="#22c55e" stroke="#15803d" stroke-width="0.5"/>
+            </svg>
+          </div>
+          <div class="flex-1 text-center md:text-left">
+            <div class="flex items-center gap-3 justify-center md:justify-start">
+              <h3 class="font-heading text-2xl font-bold text-white" id="active-name">{{ active.name }}</h3>
+              <span class="rounded-full bg-juicy-gold/20 px-3 py-0.5 text-xs font-semibold text-juicy-gold">FLAGSHIP</span>
+            </div>
+            <p class="mt-2 text-zinc-400" id="active-desc">{{ active.description }}</p>
+            <div class="mt-6 flex flex-wrap items-center gap-4 justify-center md:justify-start">
+              <span class="font-heading text-2xl font-bold text-juicy-gold" id="active-price">Rs. {{ active.price }}</span>
+              {% if active.status == "active" %}
+              <button onclick="addToCart({{ active.id }}, '{{ active.name }}', '{{ active.slug }}', {{ active.price }}, '{{ active.theme_color }}', '{{ active.glow_color }}')" class="rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-6 py-2 text-sm font-semibold text-black transition-all hover:scale-105">
+                Add to Cart
+              </button>
+              {% else %}
+              <span class="inline-flex items-center gap-1.5 rounded-full border border-juicy-purple/30 bg-juicy-purple/10 px-4 py-2 text-xs font-semibold uppercase tracking-widest text-juicy-purple">
+                <span class="h-1.5 w-1.5 rounded-full bg-juicy-purple"></span> Coming Soon
+              </span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  <!-- Future Flavors -->
+  <section id="future" class="relative overflow-hidden py-32 px-6">
+    <div id="future-bg" class="absolute inset-0 pointer-events-none"></div>
+    <div class="mx-auto max-w-7xl relative z-10">
+      <div class="reveal mb-16 text-center">
+        <h2 class="font-heading text-3xl font-bold tracking-wider text-white md:text-5xl">
+          Future <span class="text-juicy-purple">Worlds</span>
+        </h2>
+        <p class="mt-3 text-zinc-500">New flavor dimensions loading... Be the first to enter.</p>
+      </div>
+      <div class="grid gap-6 md:grid-cols-4">
+        {% for f in future %}
+        <div class="future-card relative overflow-hidden rounded-2xl border border-white/5 bg-juicy-card p-8 text-center">
+          <div class="future-glow" style="background: radial-gradient(circle at 50% 50%, {{ f.color }} 0%, transparent 70%);"></div>
+          <div class="future-overlay">
+            <div class="text-center">
+              <p class="text-xs font-semibold tracking-widest text-juicy-gold">{{ f.launch_date if f.launch_date else "Coming Soon" }}</p>
+              <button class="mt-2 rounded-full border border-white/20 px-4 py-1.5 text-xs text-white transition-all hover:bg-white/10">Notify Me</button>
+            </div>
+          </div>
+          <div class="relative z-10">
+            <div class="mx-auto mb-4 text-5xl transition-transform duration-500 hover:scale-110" style="filter: drop-shadow(0 0 20px {{ f.color }}40);">{{ f.emoji }}</div>
+            <h3 class="font-heading text-sm font-bold tracking-wide text-white">{{ f.name }}</h3>
+            <p class="mt-1 text-xs text-zinc-500">{{ f.theme }}</p>
+            <div class="mt-4 inline-flex items-center gap-1.5 rounded-full border border-juicy-purple/30 bg-juicy-purple/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-juicy-purple">
+              <span class="h-1.5 w-1.5 rounded-full bg-juicy-purple"></span> Coming Soon
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="reveal mt-16 rounded-3xl border border-juicy-purple/20 bg-gradient-to-r from-juicy-purple/10 to-transparent p-8 text-center md:p-12">
+        <h3 class="font-heading text-xl font-bold text-white md:text-2xl">Want Early Access?</h3>
+        <p class="mt-2 text-sm text-zinc-400">Get notified when new flavor worlds unlock.</p>
+        <form class="mx-auto mt-6 flex max-w-md flex-col gap-3 sm:flex-row" onsubmit="event.preventDefault(); alert('Thanks! We will notify you.');">
+          <input type="email" placeholder="Enter your email" class="flex-1 rounded-full border border-white/10 bg-white/5 px-6 py-3 text-sm text-white outline-none transition-all placeholder:text-zinc-600 focus:border-juicy-purple/50">
+          <button type="submit" class="rounded-full bg-gradient-to-r from-juicy-purple to-fuchsia-600 px-6 py-3 text-sm font-semibold text-white transition-all hover:scale-105">Join Waitlist</button>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- News Section -->
+  <section id="news" class="relative overflow-hidden py-32 px-6">
+    <div id="news-bg" class="absolute inset-0 pointer-events-none"></div>
+    <div class="relative z-10 mx-auto max-w-4xl">
+      <div class="reveal mb-16 text-center">
+        <h2 class="font-heading text-3xl font-bold tracking-wider text-white md:text-5xl">News & <span class="text-juicy-orange">Changes</span></h2>
+        <p class="mt-3 text-zinc-500">What's new in the JuicyNext universe</p>
+      </div>
+      <div class="relative">
+        <div class="absolute left-[9px] top-3 bottom-3 w-px bg-gradient-to-b from-juicy-gold/40 via-juicy-orange/30 to-juicy-purple/20 md:left-1/2 md:-translate-x-px"></div>
+        <div class="space-y-12">
+          {% for item in news %}
+          {% set i = loop.index0 %}
+          <div class="reveal" style="transition-delay: {{ i * 100 }}ms">
+            <div class="relative flex flex-col gap-4 md:flex-row md:items-start {% if i % 2 == 0 %}md:flex-row{% else %}md:flex-row-reverse{% endif %}">
+              <!-- Mobile -->
+              <div class="flex items-start gap-4 md:hidden">
+                <div class="news-timeline-dot z-10" style="background: {{ item.color }}30; border-color: {{ item.color }};">
+                  <div class="news-timeline-dot-inner" style="background: {{ item.color }};"></div>
+                </div>
+                <div class="flex-1 rounded-2xl border border-white/5 bg-juicy-card p-5 transition-all hover:border-white/10">
+                  <div class="mb-2 flex items-center gap-3">
+                    <span class="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest" style="background: {{ item.color }}15; color: {{ item.color }};">{{ item.tag }}</span>
+                    <span class="text-[10px] text-zinc-600">{{ item.date }}</span>
+                  </div>
+                  <h3 class="font-heading text-sm font-bold text-white">{{ item.title }}</h3>
+                  <p class="mt-1 text-xs text-zinc-500 leading-relaxed">{{ item.description }}</p>
+                </div>
+              </div>
+              <!-- Desktop left/right -->
+              <div class="hidden md:flex md:w-1/2 md:items-start md:gap-4" style="justify-content: {{ 'flex-end' if i % 2 == 0 else 'flex-start' }};">
+                <div class="{% if i % 2 == 0 %}md:pr-8 text-right{% else %}md:pl-8 text-left{% endif %}">
+                  <div class="rounded-2xl border border-white/5 bg-juicy-card p-5 transition-all hover:border-white/10">
+                    <div class="mb-2 flex items-center gap-3 {% if i % 2 == 0 %}justify-end{% endif %}">
+                      <span class="text-[10px] text-zinc-600">{{ item.date }}</span>
+                      <span class="rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest" style="background: {{ item.color }}15; color: {{ item.color }};">{{ item.tag }}</span>
+                    </div>
+                    <h3 class="font-heading text-sm font-bold text-white">{{ item.title }}</h3>
+                    <p class="mt-1 text-xs text-zinc-500 leading-relaxed">{{ item.description }}</p>
+                  </div>
+                </div>
+              </div>
+              <!-- Center dot -->
+              <div class="hidden md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-0 md:items-start">
+                <div class="news-timeline-dot z-10" style="background: {{ item.color }}30; border-color: {{ item.color }};">
+                  <div class="news-timeline-dot-inner" style="background: {{ item.color }};"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- Footer -->
+<footer class="relative overflow-hidden border-t border-white/5 py-12 px-6">
+  <div class="mx-auto max-w-7xl">
+    <div class="flex flex-col items-center justify-between gap-8 md:flex-row">
+      <div class="text-center md:text-left">
+        <a href="/" class="font-heading text-lg font-bold tracking-wider text-juicy-gold">🥭 JuicyNext</a>
+        <p class="mt-1 text-xs text-zinc-600">Next-generation beverages. Taste the Future.</p>
+      </div>
+      <div class="flex gap-8 text-xs text-zinc-500">
+        <a href="#flavors" class="transition-colors hover:text-white">Flavors</a>
+        <a href="#collection" class="transition-colors hover:text-white">Collection</a>
+        <a href="#future" class="transition-colors hover:text-white">Coming Soon</a>
+        <a href="/track" class="transition-colors hover:text-white">Track Order</a>
+      </div>
+      <div class="flex flex-col gap-3 text-zinc-600">
+        <div class="flex items-center gap-3">
+          <a href="https://www.instagram.com/everpure.2025?utm_source=ig_web_button_share_sheet&igsh=ZDNlZDc0MzIxNw==" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 text-xs transition-colors hover:text-white">
+            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/>
+            </svg>
+            <span>everpure.2025</span>
+          </a>
+        </div>
+        <div class="flex gap-4 text-zinc-600">
+          <span class="text-xs">TikTok</span>
+          <span class="text-xs">YouTube</span>
+        </div>
+      </div>
+    </div>
+    <div class="mt-8 border-t border-white/5 pt-6 text-center">
+      <div class="mb-4 flex flex-wrap items-center justify-center gap-3">
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-green-500/30 bg-green-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-green-400">
+          🇵🇰 100% Pakistani Brand
+        </span>
+        <span class="inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-emerald-400">
+          ☪️ Halal Certified
+        </span>
+      </div>
+      <p class="text-[10px] text-zinc-700">&copy; 2026 JuicyNext. All rights reserved.</p>
+      <p class="mt-1 text-[10px] text-zinc-700">Developed & Designed by <span class="text-zinc-500">Cloueaxil</span></p>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ===== Cart (localStorage) =====
+let cart = JSON.parse(localStorage.getItem('juicyCart') || '[]')
+
+function saveCart() {
+  localStorage.setItem('juicyCart', JSON.stringify(cart))
+  updateCartUI()
+}
+
+function updateCartUI() {
+  const total = cart.reduce((s, i) => s + i.quantity, 0)
+  const badge = document.getElementById('cart-badge')
+  if (total > 0) { badge.classList.remove('hidden'); badge.textContent = total }
+  else { badge.classList.add('hidden') }
+
+  const container = document.getElementById('cart-items')
+  const footer = document.getElementById('cart-footer')
+  if (cart.length === 0) {
+    container.innerHTML = '<div class="mt-20 text-center text-zinc-600"><div class="mb-4 text-4xl">🛒</div><p class="text-sm">Your cart is empty</p></div>'
+    footer.classList.add('hidden')
+    return
+  }
+  footer.classList.remove('hidden')
+  const totalPrice = cart.reduce((s, i) => s + i.price * i.quantity, 0)
+  document.getElementById('cart-total').textContent = 'Rs. ' + totalPrice
+  container.innerHTML = cart.map(item => `
+    <div class="mb-3 rounded-xl border border-white/5 bg-juicy-card p-4">
+      <div class="flex items-center justify-between">
+        <div>
+          <h3 class="text-sm font-semibold text-white">${item.name}</h3>
+          <p class="text-xs text-zinc-500">${item.sizeLabel}</p>
+        </div>
+        <button onclick="removeFromCart(${item.productId}, ${item.sizeMl})" class="text-xs text-zinc-600 transition-colors hover:text-red-400">Remove</button>
+      </div>
+      <div class="mt-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <button onclick="updateQty(${item.productId}, ${item.sizeMl}, ${item.quantity - 1})" class="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">−</button>
+          <span class="w-6 text-center text-sm text-white">${item.quantity}</span>
+          <button onclick="updateQty(${item.productId}, ${item.sizeMl}, ${item.quantity + 1})" class="flex h-7 w-7 items-center justify-center rounded-full border border-white/10 text-xs text-zinc-400 transition-colors hover:bg-white/10 hover:text-white">+</button>
+        </div>
+        <span class="text-sm font-semibold text-juicy-gold">Rs. ${item.price * item.quantity}</span>
+      </div>
+    </div>
+  `).join('')
+}
+
+function addToCart(productId, name, slug, price, themeColor, glowColor) {
+  const existing = cart.find(i => i.productId === productId && i.sizeMl === 250)
+  if (existing) existing.quantity++
+  else cart.push({ productId, name, slug, price, sizeMl: 250, sizeLabel: '250 ml', quantity: 1, themeColor, glowColor })
+  saveCart()
+  const btn = event.target
+  btn.textContent = '✓ Added!'
+  setTimeout(() => { btn.textContent = 'Add to Cart' }, 1500)
+}
+
+function removeFromCart(productId, sizeMl) {
+  cart = cart.filter(i => !(i.productId === productId && i.sizeMl === sizeMl))
+  saveCart()
+}
+
+function updateQty(productId, sizeMl, qty) {
+  if (qty <= 0) { removeFromCart(productId, sizeMl); return }
+  const item = cart.find(i => i.productId === productId && i.sizeMl === sizeMl)
+  if (item) { item.quantity = qty; saveCart() }
+}
+
+function clearCart() { cart = []; saveCart() }
+
+let cartOpen = false
+function toggleCart() {
+  cartOpen = !cartOpen
+  document.getElementById('cart-drawer').style.transform = cartOpen ? 'translateX(0)' : 'translateX(100%)'
+  document.getElementById('cart-overlay').classList.toggle('hidden', !cartOpen)
+}
+
+function closeMobileMenu() {
+  document.getElementById('mobile-menu').classList.add('hidden')
+}
+
+// ===== Tilt Cards =====
+function tiltCard(el, e) {
+  const rect = el.getBoundingClientRect()
+  const x = (e.clientX - rect.left) / rect.width - 0.5
+  const y = (e.clientY - rect.top) / rect.height - 0.5
+  const inner = el.querySelector('.tilt-card-inner')
+  if (inner) inner.style.transform = `rotateX(${y * -12}deg) rotateY(${x * 12}deg)`
+}
+
+function untiltCard(el) {
+  const inner = el.querySelector('.tilt-card-inner')
+  if (inner) inner.style.transform = 'rotateX(0deg) rotateY(0deg)'
+}
+
+// ===== Select Product =====
+const productsData = {{ products | tojson | safe }}
+
+function selectProduct(id) {
+  const p = productsData.find(x => x.id === id)
+  if (!p) return
+  document.getElementById('active-name').textContent = p.name
+  document.getElementById('active-desc').textContent = p.description
+  document.getElementById('active-price').textContent = 'Rs. ' + p.price
+}
+
+// ===== Reveal on Scroll =====
+function initReveal() {
+  const els = document.querySelectorAll('.reveal')
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => { if (entry.isIntersecting) { entry.target.classList.add('visible'); observer.unobserve(entry.target) } })
+  }, { threshold: 0.1 })
+  els.forEach(el => observer.observe(el))
+}
+
+// ===== Floating Particles (CSS) =====
+function initParticles() {
+  const container = document.getElementById('particles')
+  const colors = ['#FFD700', '#FF6B00', '#8B00FF', '#FF1493']
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div')
+    p.className = 'particle'
+    const size = 2 + Math.random() * 4
+    p.style.cssText = `width:${size}px;height:${size}px;left:${Math.random()*100}%;top:${Math.random()*100}%;background:${colors[i%4]};animation-delay:${Math.random()*5}s;animation-duration:${4+Math.random()*6}s`
+    container.appendChild(p)
+  }
+}
+
+// ===== Init =====
+document.addEventListener('DOMContentLoaded', function() {
+  updateCartUI()
+  initReveal()
+  initParticles()
+  createMangoScene('mango-scene', '#FFD700', '#FF6B00')
+  createParticleBackground('future-bg', '#8B00FF', 40)
+  createParticleBackground('news-bg', '#FF6B00', 30)
+})
+</script>
+{% endblock %}

@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}JuicyNext — Track Order{% endblock %}
+{% block desc %}Track your JuicyNext order status.{% endblock %}
+
+{% block head_extra %}
+<style>
+  .fade-in { opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); }
+  .fade-in.visible { opacity: 1; transform: translateY(0); }
+  .track-step { transition: all 0.3s ease; }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="fixed top-0 left-0 right-0 z-50 bg-black/60 backdrop-blur-md border-b border-white/5">
+  <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 md:px-6">
+    <a href="/" class="flex items-center gap-2">
+      <span class="text-xl md:text-2xl">🥭</span>
+      <span class="font-heading text-base font-bold tracking-wider text-juicy-gold md:text-lg">JuicyNext</span>
+    </a>
+    <nav class="hidden items-center gap-8 text-sm md:flex">
+      <a href="/" class="text-zinc-400 transition-colors hover:text-white">Home</a>
+      <a href="/buy" class="text-zinc-400 transition-colors hover:text-white">Buy</a>
+    </nav>
+  </div>
+</header>
+
+<main class="min-h-screen pt-28 pb-16 px-6">
+  <div class="mx-auto max-w-2xl text-center">
+    <div class="mb-8 text-6xl animate-bounce-soft">📦</div>
+    <h1 class="font-heading text-3xl font-bold text-white md:text-5xl fade-in visible">
+      Track Your <span class="text-juicy-gold">Order</span>
+    </h1>
+    <p class="mt-3 text-zinc-500 fade-in visible">Enter your order ID to check delivery status</p>
+
+    <form id="track-form" class="mx-auto mt-8 flex max-w-md gap-3 fade-in visible">
+      <input id="order-id-input" value="{{ order_id or '' }}" placeholder="Order ID (e.g. 1)" class="flex-1 rounded-full border border-white/10 bg-juicy-card px-6 py-3 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-juicy-gold/50">
+      <button type="submit" class="rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold px-6 py-3 text-sm font-bold text-black transition-all hover:scale-105">Track</button>
+    </form>
+
+    <div id="track-result" class="mt-12 rounded-2xl border border-white/5 bg-juicy-card p-8 {% if not order %}hidden{% endif %}">
+      <div id="track-loading" class="hidden">
+        <p class="text-zinc-500">Looking up order...</p>
+      </div>
+      <div id="track-content">
+        <div class="flex items-center justify-between text-sm">
+          <span class="text-zinc-500">Status</span>
+          <span id="order-status-badge" class="rounded-full px-3 py-1 text-xs font-semibold {% if order %}bg-yellow-500/10 text-yellow-400{% endif %}">
+            {{ order.status if order else 'Pending' }}
+          </span>
+        </div>
+        <div class="mt-6">
+          <div class="flex items-center justify-between">
+            {% for step in ["Confirmed", "Preparing", "Shipped", "Delivered"] %}
+            <div class="flex flex-col items-center">
+              <div class="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold {% if loop.first %}bg-juicy-gold/20 text-juicy-gold{% else %}bg-white/5 text-zinc-600{% endif %} track-step">
+                {{ loop.index }}
+              </div>
+              <span class="mt-1 text-[10px] text-zinc-600">{{ step }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <div class="relative mt-2 h-1 rounded-full bg-white/5">
+            <div class="absolute left-0 top-0 h-1 w-1/4 rounded-full bg-gradient-to-r from-juicy-orange to-juicy-gold"></div>
+          </div>
+        </div>
+        <p id="order-status-msg" class="mt-6 text-xs text-zinc-600">
+          {% if order %}Order #{{ order.id }} — {{ order.status }}.{% else %}Order confirmed. Awaiting preparation.{% endif %}
+        </p>
+        {% if order %}
+        <div class="mt-4 border-t border-white/5 pt-4 text-left">
+          <p class="text-xs text-zinc-500"><span class="text-zinc-600">Customer:</span> {{ order.customer_name }} · {{ order.customer_phone }}</p>
+          <p class="text-xs text-zinc-500"><span class="text-zinc-600">Total:</span> <span class="text-juicy-gold">Rs. {{ order.total }}</span></p>
+          <p class="text-xs text-zinc-500"><span class="text-zinc-600">Payment:</span> {{ "Cash on Delivery" if order.payment_method == "cod" else "Online Payment" }}</p>
+          {% if order.created_at %}
+          <p class="text-xs text-zinc-600 mt-1">{{ order.created_at }}</p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if error %}
+    <div class="mt-6 text-sm text-red-400">{{ error }}</div>
+    {% endif %}
+  </div>
+</main>
+
+<footer class="border-t border-white/5 py-12 px-6">
+  <div class="mx-auto max-w-7xl text-center">
+    <a href="/" class="font-heading text-lg font-bold tracking-wider text-juicy-gold">🥭 JuicyNext</a>
+    <p class="mt-1 text-xs text-zinc-600">Next-generation beverages. Taste the Future.</p>
+    <p class="mt-4 text-[10px] text-zinc-700">&copy; 2026 JuicyNext. All rights reserved.</p>
+  </div>
+</footer>
+
+<script>
+const API = window.location.origin
+
+document.getElementById('track-form').addEventListener('submit', async function(e) {
+  e.preventDefault()
+  const id = document.getElementById('order-id-input').value.trim()
+  if (!id) { alert('Please enter an order ID'); return }
+  window.location.href = '/track?id=' + id
+})
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.fade-in').forEach((el, i) => {
+    setTimeout(() => el.classList.add('visible'), i * 150)
+  })
+})
+</script>
+{% endblock %}
