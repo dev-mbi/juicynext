@@ -14,4 +14,5 @@ COPY backend/ .
 RUN apt-get purge -y --auto-remove gcc libc6-dev
 
 EXPOSE 8000
-CMD ["bash", "start.sh"]
+
+CMD exec uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000}
